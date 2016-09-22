@@ -59,9 +59,10 @@ class ESD_sim(ESD):
             
         
             self.ESD_profiles =np.zeros(len(self.mass_arr)-1 , dtype=dt_ESD_profiles)
-            self.ESD_16th_error =np.zeros(len(self.mass_arr)-1 , dtype=dt_ESD_profiles)
-            self.ESD_84th_error =np.zeros(len(self.mass_arr)-1 , dtype=dt_ESD_profiles)
-
+            #84th percentile - mean for plotting pourpose
+            self.ESD_84th =np.zeros(len(self.mass_arr)-1 , dtype=dt_ESD_profiles)
+            #mean - 16th percentile for plotting pourpose
+            self.ESD_16th =np.zeros(len(self.mass_arr)-1 , dtype=dt_ESD_profiles)
 
 
     def ESD_in_bins(self):
@@ -70,8 +71,8 @@ class ESD_sim(ESD):
         n_ESD_bins = self.ESD_bins
         dt_ESD_template = np.dtype([('mean_snap_esd_profile_y'  , float , n_ESD_bins), \
                                     ('stdev_snap_esd_profile_y'  , float , n_ESD_bins), \
-                                    ('boot_05th_snap_esd_profile_y'  , float , n_ESD_bins), \
-                                    ('boot_95th_snap_esd_profile_y'  , float , n_ESD_bins), \
+                                    ('boot_16th_snap_esd_profile_y'  , float , n_ESD_bins), \
+                                    ('boot_84th_snap_esd_profile_y'  , float , n_ESD_bins), \
                                     ('snap_r_plus_half' , float , n_ESD_bins )   ])
         ESD_prof_in_bin  = { 'all' : np.zeros(1, dtype=dt_ESD_template) , \
                              'cen' : np.zeros(1, dtype=dt_ESD_template) , \
@@ -132,9 +133,9 @@ class ESD_sim(ESD):
 
                 
                 for i in np.arange(n_ESD_bins):
-                    ESD_prof_in_bin[sub_type_tag]['boot_05th_snap_esd_profile_y'][0,i] = np.percentile(mean_esd[:,i],2.5)/100.
+                    ESD_prof_in_bin[sub_type_tag]['boot_16th_snap_esd_profile_y'][0,i] = np.percentile(mean_esd[:,i],16)/100.
                     
-                    ESD_prof_in_bin[sub_type_tag]['boot_95th_snap_esd_profile_y'][0,i] = np.percentile(mean_esd[:,i],97.5)/100.
+                    ESD_prof_in_bin[sub_type_tag]['boot_84th_snap_esd_profile_y'][0,i] = np.percentile(mean_esd[:,i],84)/100.
 
                 
                 #print vec
@@ -437,31 +438,28 @@ class ESD_sim(ESD):
             #print ESD_gama.ESD_profiles[0]['rad'][:]
 
             for ibin  in np.arange(1,len( self.mass_arr)-1):
-                    #print ibin
+                   
                    
                     for i  in np.arange(len( ESD_gama.ESD_profiles[ibin]['rad'][:])):
 
-                            #print i 
-                            #min_index_1 = values.index(min(abs(self.ESD_profiles[ibin]['rad'][:] - ESD_gama.ESD_profiles[ibin]['rad'][i])))
-                            #print min_index_1
+                            # index at which the distance between the sim and gama is at min
+                            
                             min_index = np.argmin(abs(self.ESD_profiles[ibin]['rad'] - ESD_gama.ESD_profiles[ibin]['rad'][i]))
-                            #print min_index
+                            #print  min_index
                             sim.append(self.ESD_profiles[ibin][sub_type_tag][min_index] )
                             data.append(ESD_gama.ESD_profiles[ibin][sub_type_tag][i] )
-
-                            #print self.ESD_profiles[ibin]['rad'][min_index]
-                            #print ESD_gama.ESD_profiles[ibin]['rad'][i]
-                            #print self.ESD_profiles[ibin][sub_type_tag][min_index]
-                            #print ESD_gama.ESD_profiles[ibin][sub_type_tag][i]
-                            #print ESD_gama.ESD_84th_error[ibin][sub_type_tag][i]
+                            # chi_sq
+                            # (esd_gama - esd_sim)^2 / (sigma_gama^2 + sigma_sim^2)
                             chi_sq +=   (self.ESD_profiles[ibin][sub_type_tag][min_index] - \
                                          ESD_gama.ESD_profiles[ibin][sub_type_tag][i])**2. / \
-                            ((ESD_gama.ESD_84th_error[ibin][sub_type_tag][i])**2 + \
-                             ((self.ESD_84th_error[ibin][sub_type_tag][min_index]  - \
-                              self.ESD_16th_error[ibin][sub_type_tag][min_index])/2 )**2)
+                            (
+                            ( (ESD_gama.ESD_84th[ibin][sub_type_tag][i]-
+                               ESD_gama.ESD_16th[ibin][sub_type_tag][i])/2 )**2 +
+                            
+                            ( (self.ESD_84th[ibin][sub_type_tag][min_index]  - \
+                               self.ESD_16th[ibin][sub_type_tag][min_index])/2 )**2)
 
-                            #chi_sq +=   ((self.ESD_profiles[ibin][sub_type_tag][min_index] - ESD_gama.ESD_profiles[ibin][sub_type_tag][i])/(ESD_gama.ESD_84th_error[ibin][sub_type_tag][i])**2)
-                            #print chi_sq
+
                             dof +=1.
 
                             
@@ -480,33 +478,32 @@ class ESD_sim(ESD):
                         
                             self.ESD_profiles[ibin][sub_type_tag][:] = self.ESD_prof_in_bin[ibin][sub_type_tag]['mean_snap_esd_profile_y'][0,:]
                             self.ESD_profiles[ibin]['rad'][:] = self.ESD_prof_in_bin[ibin][sub_type_tag]['snap_r_plus_half'][0,:]
-                            self.ESD_16th_error[ibin][sub_type_tag][:] = (self.ESD_prof_in_bin[ibin][sub_type_tag]['mean_snap_esd_profile_y'][0,:] - \
-                                                                          self.ESD_prof_in_bin[ibin][sub_type_tag]['boot_05th_snap_esd_profile_y'][0,:])
+                            self.ESD_16th[ibin][sub_type_tag][:] = (self.ESD_prof_in_bin[ibin][sub_type_tag]['boot_16th_snap_esd_profile_y'][0,:])
 
-                            self.ESD_84th_error[ibin][sub_type_tag][:]= (-self.ESD_prof_in_bin[ibin][sub_type_tag]['mean_snap_esd_profile_y'][0,:] + \
-                                                                         self.ESD_prof_in_bin[ibin][sub_type_tag]['boot_95th_snap_esd_profile_y'][0,:] )
-                            self.ESD_16th_error[ibin]['rad'][:] = self.ESD_profiles[ibin]['rad'][:]
-                            self.ESD_84th_error[ibin]['rad'][:] = self.ESD_profiles[ibin]['rad'][:]
+                            # !!! this is for visualization only ESD_84th_error is the portion of the error bar that goues from the mean to the top error
+                            self.ESD_84th[ibin][sub_type_tag][:]= (self.ESD_prof_in_bin[ibin][sub_type_tag]['boot_84th_snap_esd_profile_y'][0,:] )
+                            self.ESD_84th[ibin]['rad'][:] = self.ESD_profiles[ibin]['rad'][:]
+                            self.ESD_16th[ibin]['rad'][:] = self.ESD_profiles[ibin]['rad'][:]
                         
 
         else :
+            print 'compute the ESD first'
+
+            # print self.mass_arr
+            # for type_index, sub_type_tag in enumerate(sub_type):
+            #         for ibin in np.arange( len(self.mass_arr)-1) :
+            #                 filename_sim = self.get_filename(ibin, sub_type_sim[type_index])
 
 
-            print self.mass_arr
-            for type_index, sub_type_tag in enumerate(sub_type):
-                    for ibin in np.arange( len(self.mass_arr)-1) :
-                            filename_sim = self.get_filename(ibin, sub_type_sim[type_index])
+            #                 radius, mean_ESD , median_ESD , ESD_down_std, ESD_up_std ,  ESD_error , ESD_16th_down_error , ESD_84th_up_error , ESD_down_error , ESD_up_error = loadtxt(filename_sim,unpack=True, comments='#')
 
+            #                 self.ESD_profiles[ibin][sub_type_tag][:] = pow(10.0 , mean_ESD[:])
+            #                 self.ESD_profiles[ibin]['rad'][:] = 10.0**radius[:]
+            #                 self.ESD_16th[ibin][sub_type_tag][:] = -10.0**ESD_down_error[:] + 10.0**mean_ESD[:]
 
-                            radius, mean_ESD , median_ESD , ESD_down_std, ESD_up_std ,  ESD_error , ESD_16th_down_error , ESD_84th_up_error , ESD_down_error , ESD_up_error = loadtxt(filename_sim,unpack=True, comments='#')
-
-                            self.ESD_profiles[ibin][sub_type_tag][:] = pow(10.0 , mean_ESD[:])
-                            self.ESD_profiles[ibin]['rad'][:] = 10.0**radius[:]
-                            self.ESD_16th_error[ibin][sub_type_tag][:] = -10.0**ESD_down_error[:] + 10.0**mean_ESD[:]
-
-                            self.ESD_84th_error[ibin][sub_type_tag][:]= 10.0**ESD_up_error[:] - 10.0**mean_ESD[:]
-                            self.ESD_16th_error[ibin]['rad'][:] = 10.0**radius[:]
-                            self.ESD_84th_error[ibin]['rad'][:] = 10.0**radius[:]
+            #                 self.ESD_84th[ibin][sub_type_tag][:]= 10.0**ESD_up_error[:] - 10.0**mean_ESD[:]
+            #                 self.ESD_16th_error[ibin]['rad'][:] = 10.0**radius[:]
+            #                 self.ESD_84th_error[ibin]['rad'][:] = 10.0**radius[:]
 
 
 
@@ -613,8 +610,8 @@ class ESD_gama(ESD):
             
             #stored record array with the data and the errors
             self.ESD_profiles =np.zeros(len(self.mass_arr)-1 , dtype=dt_ESD_profiles)
-            self.ESD_16th_error =np.zeros(len(self.mass_arr)-1 , dtype=dt_ESD_profiles)
-            self.ESD_84th_error =np.zeros(len(self.mass_arr)-1 , dtype=dt_ESD_profiles)
+            self.ESD_16th =np.zeros(len(self.mass_arr)-1 , dtype=dt_ESD_profiles)
+            self.ESD_84th =np.zeros(len(self.mass_arr)-1 , dtype=dt_ESD_profiles)
 
 
     def get_filename(self, ibin, type_tag):
@@ -663,12 +660,12 @@ class ESD_gama(ESD):
                                                                       max_mass_tag]
                             self.ESD_profiles[massbin]['rad'][:]= radius[:]/1000.
                             self.ESD_profiles[massbin][sub_type_tag][:]= ESD[:] * self.m_bias_corr
-                            self.ESD_16th_error[massbin]['rad'][:]= radius[:]/1000.
-                            self.ESD_16th_error[massbin][sub_type_tag][:]= error_ESD[:]* self.m_bias_corr
-                            self.ESD_84th_error[massbin]['rad'][:]= radius/1000.
+                            self.ESD_16th[massbin]['rad'][:]= radius[:]/1000.
+                            self.ESD_16th[massbin][sub_type_tag][:]= self.ESD_profiles[massbin][sub_type_tag][:] - error_ESD[:]* self.m_bias_corr
+                            self.ESD_84th[massbin]['rad'][:]= radius/1000.
 
                             
-                            self.ESD_84th_error[massbin][sub_type_tag][:]= error_ESD[:]* self.m_bias_corr
+                            self.ESD_84th[massbin][sub_type_tag][:]= self.ESD_profiles[massbin][sub_type_tag][:] + error_ESD[:]* self.m_bias_corr
 
     def get_fsat(self):
             "get the f_sat info from the data"
@@ -920,8 +917,8 @@ def plot_ESD_list(ESD_data_list, savename):
                             #print ESD_data_list[i].ESD_profiles[sub_type_tag][ibin,plot_index]
                             errorbar(ESD_data_list[i].ESD_profiles['rad'][ibin,plot_index], \
                                          ESD_data_list[i].ESD_profiles[sub_type_tag][ibin,plot_index] , \
-                                         yerr= [ESD_data_list[i].ESD_16th_error[sub_type_tag][ibin,plot_index] \
-                                                , ESD_data_list[i].ESD_84th_error[sub_type_tag][ibin,plot_index]] , \
+                                         yerr= [(ESD_data_list[i].ESD_profiles[sub_type_tag][ibin,plot_index] - ESD_data_list[i].ESD_16th[sub_type_tag][ibin,plot_index]) \
+                                                , (ESD_data_list[i].ESD_84th[sub_type_tag][ibin,plot_index] - ESD_data_list[i].ESD_profiles[sub_type_tag][ibin,plot_index])] , \
                                          color =color_line, \
                                          label=ESD_data_list[i].name_tag ,\
                                          marker=ESD_data_list[i].marker[sub_type_tag] ,\
@@ -1283,13 +1280,16 @@ plot_ESD_list(ESD_data_list_allstars, savename)
 # make text files with the stats
 #save_stat_table(ESD_data_list_allstars, savename )
 
+#check problem with errors
+ESD_data_list_allstars[3].ESD_prof_in_bin[0]['sat']['boot_84th_snap_esd_profile_y'] - ESD_data_list_allstars[3].ESD_prof_in_bin[0]['sat']['boot_16th_snap_esd_profile_y'] 
+ESD_data_list_allstars[3].ESD_84th[0]['sat'] -  ESD_data_list_allstars[3].ESD_16th[0]['sat']
 #!!!!!!!!!!!!!!!!!!!!! example of use stat in bin !!!!!!!!!!!!!
 #histogram of the distribution of subhalo masses for satellites in the first bin
 #data_s.vec_stat[0]['sat']['histo_y_subhalo_mass']
 #data_s.vec_stat[0]['sat']['histo_x_subhalo_mass']
 
 
-#stop()
+
 
 
 
