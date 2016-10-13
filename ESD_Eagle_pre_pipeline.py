@@ -7,8 +7,8 @@
 # statistics for various quantities in the stellar mass bins (for simulations)
 
 class ESD(object):
-    def __init__(self,  mass_arr , path, nfof_lim , color, name_tag):
-
+    def __init__(self,  name , mass_arr , path, nfof_lim , color, name_tag):
+        self.name = name
         self.f_sat = []
         self.n_tot = []
         self.mean_mass = []
@@ -36,8 +36,8 @@ class ESD(object):
         self.marker = dic    
 
 class ESD_sim(ESD):
-    def __init__(self,  mass_arr, path , nfof_lim, color, name_tag, m_host_limit, extra_tag):
-            ESD.__init__(self,  mass_arr, path , nfof_lim, color, name_tag)
+    def __init__(self,  name , mass_arr, path , nfof_lim, color, name_tag, m_host_limit, extra_tag):
+            ESD.__init__(self,  name , mass_arr, path , nfof_lim, color, name_tag)
             self.m_host_limit = m_host_limit
             self.extra_tag =  extra_tag
             marker = ''
@@ -428,7 +428,7 @@ class ESD_sim(ESD):
                 print 'bin ', ibin+1 , 'contain ' , len(index) , ' galaxies'
             
             
-    def compute_chi_squared(self, ESD_gama, sub_type_tag):
+    def compute_chi_squared(self, ESD_gama, sub_type_tag, path):
             """computes the chi square between model and data"""
             chi_sq = 0
             min_value = []
@@ -437,33 +437,47 @@ class ESD_sim(ESD):
             dof=0.
             #print ESD_gama.ESD_profiles[0]['rad'][:]
 
-            for ibin  in np.arange(1,len( self.mass_arr)-1):
-                   
-                   
-                    for i  in np.arange(len( ESD_gama.ESD_profiles[ibin]['rad'][:])):
-
-                            # index at which the distance between the sim and gama is at min
-                            
-                            min_index = np.argmin(abs(self.ESD_profiles[ibin]['rad'] - ESD_gama.ESD_profiles[ibin]['rad'][i]))
-                            #print  min_index
-                            sim.append(self.ESD_profiles[ibin][sub_type_tag][min_index] )
-                            data.append(ESD_gama.ESD_profiles[ibin][sub_type_tag][i] )
-                            # chi_sq
-                            # (esd_gama - esd_sim)^2 / (sigma_gama^2 + sigma_sim^2)
-                            chi_sq +=   (self.ESD_profiles[ibin][sub_type_tag][min_index] - \
-                                         ESD_gama.ESD_profiles[ibin][sub_type_tag][i])**2. / \
-                            (
-                            ( (ESD_gama.ESD_84th[ibin][sub_type_tag][i]-
-                               ESD_gama.ESD_16th[ibin][sub_type_tag][i])/2 )**2 +
-                            
-                            ( (self.ESD_84th[ibin][sub_type_tag][min_index]  - \
-                               self.ESD_16th[ibin][sub_type_tag][min_index])/2 )**2)
+            filename =path+'_chi_squared_'+ self.name +'_'+ sub_type_tag+'.txt'
+            with open(filename, "w") as text_file:
+                text_file.write(" bin_left ,"+\
+                                 " bin_right ,"+\
+                                 " rad ,"+\
+                                 " chi_sq_term \n")
+                for ibin  in np.arange(1,len( self.mass_arr)-1):
 
 
-                            dof +=1.
+                        for i  in np.arange(len( ESD_gama.ESD_profiles[ibin]['rad'][:])):
 
-                            
-            return chi_sq / (dof-1) ,  (dof-1)
+                                # index at which the distance between the sim and gama is at min
+
+                                min_index = np.argmin(abs(self.ESD_profiles[ibin]['rad'] - ESD_gama.ESD_profiles[ibin]['rad'][i]))
+                                #print  min_index
+                                sim.append(self.ESD_profiles[ibin][sub_type_tag][min_index] )
+                                data.append(ESD_gama.ESD_profiles[ibin][sub_type_tag][i] )
+                                # chi_sq
+                                # (esd_gama - esd_sim)^2 / (sigma_gama^2 + sigma_sim^2)
+                                chi_sq_term =   (self.ESD_profiles[ibin][sub_type_tag][min_index] - \
+                                             ESD_gama.ESD_profiles[ibin][sub_type_tag][i])**2. / \
+                                (
+                                ( (ESD_gama.ESD_84th[ibin][sub_type_tag][i]-
+                                   ESD_gama.ESD_16th[ibin][sub_type_tag][i])/2 )**2 +
+
+                                ( (self.ESD_84th[ibin][sub_type_tag][min_index]  - \
+                                   self.ESD_16th[ibin][sub_type_tag][min_index])/2 )**2)
+                                chi_sq += chi_sq_term
+                                text_file.write((" {:03.2f} ,"+\
+                                                 " {:03.2f} ,"+\
+                                                 " {:03.4f} ,"+\
+                                                 " {:03.4f} \n")\
+                                                .format(self.mass_arr[ibin],\
+                                                        self.mass_arr[ibin+1],\
+                                                        ESD_gama.ESD_profiles[ibin]['rad'][i],\
+                                                        chi_sq_term))
+
+                                dof +=1.
+
+
+                return chi_sq / (dof-1) ,  (dof-1)
             
     def get_ESD_profile(self):
         """ collects the esd profiles computed by the ESD_in_bins function and puts them in the proper
@@ -579,8 +593,8 @@ class ESD_sim(ESD):
 
 
 class ESD_gama(ESD):
-    def __init__(self, mass_arr , path , nfof_lim, color, name_tag, extra_tag , cat_blind , m_bias):
-            ESD.__init__(self,mass_arr,  path, nfof_lim , color, name_tag)
+    def __init__(self, name , mass_arr , path , nfof_lim, color, name_tag, extra_tag , cat_blind , m_bias):
+            ESD.__init__(self,name , mass_arr,  path, nfof_lim , color, name_tag)
             marker = 'o'
             linestyle = ''
             #default linestyle
@@ -832,7 +846,7 @@ def plot_ESD_allbins(ESD_data, savename):
 
             
 
-def compute_chi(ESD_data_list):
+def compute_chi(ESD_data_list, path):
         sub_type = ['all' , 'sat' ,'cen']
         for ESD_data in ESD_data_list :
                 if isinstance(ESD_data, ESD_gama):
@@ -842,7 +856,7 @@ def compute_chi(ESD_data_list):
             for sub_type_tag in sub_type :
                 
                 if isinstance(ESD_data, ESD_sim):
-                    chi_sq_red , dof = ESD_data.compute_chi_squared(ESD_gama_comp,sub_type_tag )
+                    chi_sq_red , dof = ESD_data.compute_chi_squared(ESD_gama_comp,sub_type_tag, path )
                     print   '========== ', ESD_data.name_tag , sub_type_tag ,\
                         'X^2='+ str(chi_sq_red),\
                         'pvalue=' , 1 - stats.chi2.cdf(chi_sq_red*dof,dof ),\
@@ -929,7 +943,7 @@ def plot_ESD_list(ESD_data_list, savename):
 
                     text(0.2 , 600 , '$  ' + str(ESD_data_list[0].mass_arr[ibin]) + "<\mathrm{log}_{10}\,M_{\mathrm{star}}\, / \, M_{\\odot}<"  + str(ESD_data_list[0].mass_arr[ibin+1])+'$  ', ha='center', va='center',fontsize=20)
 
-                    if pbin == 2 :legend(loc='lower left',fontsize=14)
+                    if pbin == 4 :legend(loc='center left',fontsize=18, bbox_to_anchor=(1, 0.5))
 
                 if sub_type_tag == 'all':
                     plt.suptitle('Centrals + Satellites',fontsize=30)
@@ -976,7 +990,7 @@ def plot_ESD_list(ESD_data_list, savename):
         
 
 
-def plot_ESD_sim_stat(ESD_data_list, savename):
+def plot_ESD_sim_stat(ESD_data_list, savename, save_txt = False):
         """ plots the statistics in every bin"""
         # if there are more than one sim ESD use def colors, with one use blue = sat red = cen black = all
         n_ESD_sim = 0
@@ -1010,6 +1024,22 @@ def plot_ESD_sim_stat(ESD_data_list, savename):
 
                             for ESD_s in ESD_sim_comp :
 
+                                
+                                if save_txt :
+                                    filename =savename+'_'+ ESD_s.name +'_'+ sub_type_tag+'_'+ mass_type_tag+ str(ESD_s.mass_arr[ibin]) + "_"  + str(ESD_s.mass_arr[ibin+1])+'.txt'
+                                    print 'less ' , filename 
+                                    with open(filename, "w") as text_file:
+                                        text_file.write(("middlebin , "+\
+                                                         "density \n"))
+                                        print len(ESD_s.vec_stat[ibin][sub_type_tag]['histo_x_'+ mass_type_tag][0])
+                                        for bin_histo in np.arange(len(ESD_s.vec_stat[ibin][sub_type_tag]['histo_x_'+ mass_type_tag][0])-1) :
+                                            
+                                            text_file.write((" {:03.2f} ,"+\
+                                                             " {:03.2f} \n")\
+                                                            .format(ESD_s.vec_stat[ibin][sub_type_tag]['histo_x_'+ mass_type_tag][0,bin_histo],\
+                                                                    ESD_s.vec_stat[ibin][sub_type_tag]['histo_y_'+ mass_type_tag][0,bin_histo]))
+
+                                
                                 x_arr = ESD_s.vec_stat[ibin][sub_type_tag]['histo_x_'+mass_type_tag][0,:]
                                 if min(x_arr) != max(x_arr):
                                     min_x = np.append(min_x , min(x_arr))
@@ -1045,6 +1075,14 @@ def plot_ESD_sim_stat(ESD_data_list, savename):
                     #plt.savefig(plot_name + ".ps")
                     #plt.show()
                     print 'evince ' + plot_name+ ".pdf"
+
+
+
+
+
+
+
+                    
 
 
 def print_stat_table(ESD_data_list, savename):
@@ -1225,17 +1263,17 @@ m_bias=-0.012
 orange = "#E78532"
 # initialization of the object ESD_gama
 #  ESD_gama( mass_arr , path, nfof_lim , color, name_tag, extra_tag , cat_blind , m_bias)
-data_g= ESD_gama(massbin_vector , path_gama_data  , 5 , 'purple', "Blind 2", extra_tag , 'C', m_bias)
+data_g= ESD_gama('' ,massbin_vector , path_gama_data  , 5 , 'purple', "Blind 2", extra_tag , 'C', m_bias)
 data_g.redefine_markers({'all': '^'  , 'cen': 'd'  , 'sat': 's' })
 ESD_data_list_allstars.append(data_g)
 
 
 
-data_g= ESD_gama(massbin_vector , path_gama_data  , 5 , "green", "Blind 3", extra_tag , 'A' , m_bias)
+data_g= ESD_gama('' ,massbin_vector , path_gama_data  , 5 , "green", "Blind 3", extra_tag , 'A' , m_bias)
 data_g.redefine_markers({'all': '^'  , 'cen': 'd'  , 'sat': 's' })
 ESD_data_list_allstars.append(data_g)
 
-data_g= ESD_gama(massbin_vector , path_gama_data  , 5 , "k", "Blind 1", extra_tag , 'B', m_bias)
+data_g= ESD_gama('' ,massbin_vector , path_gama_data  , 5 , "k", "Blind 1", extra_tag , 'B', m_bias)
 data_g.redefine_markers({'all': '^'  , 'cen': 'd'  , 'sat': 's' })
 ESD_data_list_allstars.append(data_g)
 
@@ -1244,7 +1282,7 @@ calib_vect_Mlim = np.array( [9.33867    ,  9.46250  ,    9.91261 ,     9.95804  
 
 
 # ESD_sim(mass_arr, path , nfof_lim, color, name_tag, m_host_limit, extra_tag)
-data_s = ESD_sim(massbin_vector ,path_sim_z0p2 , 5 , orange , "EAGLE" ,  calib_vect_Mlim , '')
+data_s = ESD_sim('calibrated_Mlim' ,massbin_vector ,path_sim_z0p2 , 5 , orange , "EAGLE" ,  calib_vect_Mlim , '')
 data_s.redefine_colors({'all': 'k'  , 'cen': 'r'  , 'sat': 'b' })
 data_s.read_EAGLE_gal_cat()
 data_s.stat_on_bins()
@@ -1270,10 +1308,17 @@ for ESD_class in ESD_data_list_allstars:
 
 
 savename = path_plot + "allstars"
+
+plot_ESD_sim_stat(ESD_data_list_allstars, savename,save_txt=True)
+
 # plots with all massbins profiles in one plot (only for sim)
 plot_ESD_allbins(data_s, savename)
 # plots with the comparison data sim one panel for every mass bin
 plot_ESD_list(ESD_data_list_allstars, savename)
+
+
+
+
 
 #make the table in latex for paper
 #print_stat_table(ESD_data_list_allstars, savename )
@@ -1303,10 +1348,10 @@ ESD_data_list_diff_Mlim = []
 
 
 
-data_s = ESD_sim(massbin_vector ,path_sim_z0p2 , 5 , orange , "EAGLE" ,  calib_vect_Mlim , '')
+data_s = ESD_sim('calibrated_Mlim' , massbin_vector ,path_sim_z0p2 , 5 , orange , "EAGLE" ,  calib_vect_Mlim , '')
 
 
-data_s = ESD_sim(massbin_vector ,path_sim_z0p2 , 5 ,    'b', '$\mathrm{log}_{10}\,M^{\mathrm{limit}}_{\mathrm{fiducial}} -0.75 $' , calib_vect_Mlim[:] -0.75, '' )
+data_s = ESD_sim('calibrated_Mlim_minus0p75' , massbin_vector ,path_sim_z0p2 , 5 ,    'b', '$\mathrm{log}_{10}\,M^{\mathrm{limit}}_{\mathrm{fiducial}} -0.75 $' , calib_vect_Mlim[:] -0.75, '' )
 data_s.redefine_colors({'all': gray_3  , 'cen': gray_3  , 'sat': gray_3 })
 #data_s.redefine_linestyles({'all': '--'  , 'cen': '--'  , 'sat': '--' })
 #data_s.redefine_linestyles(self,dic)
@@ -1314,7 +1359,7 @@ data_s.redefine_colors({'all': gray_3  , 'cen': gray_3  , 'sat': gray_3 })
 
 ESD_data_list_diff_Mlim.append(data_s)
 
-data_s = ESD_sim(massbin_vector ,path_sim_z0p2 , 5 ,    'r', '$\mathrm{log}_{10}\,M^{\mathrm{limit}}_{\mathrm{fiducial}} + 0.25 $' , calib_vect_Mlim +0.25, '' )
+data_s = ESD_sim('calibrated_Mlim_plus0p25' , massbin_vector ,path_sim_z0p2 , 5 ,    'r', '$\mathrm{log}_{10}\,M^{\mathrm{limit}}_{\mathrm{fiducial}} + 0.25 $' , calib_vect_Mlim +0.25, '' )
 data_s.redefine_colors({'all': gray_1  , 'cen': gray_1  , 'sat': gray_1 })
 #data_s.redefine_linestyles({'all': '-.'  , 'cen': '-.'  , 'sat': '-.' })
 
@@ -1323,17 +1368,17 @@ ESD_data_list_diff_Mlim.append(data_s)
 #data_s = ESD_sim(path_sim_z0p2 , 4 ,    blue_alt, " Calib -1.0 " , calib_vect_Mlim -1.0, '' )
 #ESD_data_list_diff_Mlim.append(data_s)
 
-data_s = ESD_sim(massbin_vector ,path_sim_z0p2 , 5 ,    'g',  '$\mathrm{log}_{10}\,M^{\mathrm{limit}}_{\mathrm{fiducial}} -1.5 $' , calib_vect_Mlim -1.5, '' )
+data_s = ESD_sim('calibrated_Mlim_minus1p50' , massbin_vector ,path_sim_z0p2 , 5 ,    'g',  '$\mathrm{log}_{10}\,M^{\mathrm{limit}}_{\mathrm{fiducial}} -1.5 $' , calib_vect_Mlim -1.5, '' )
 data_s.redefine_colors({'all': gray_2  , 'cen':  gray_2 , 'sat': gray_2 })
 #data_s.redefine_linestyles({'all': ':'  , 'cen': ':'  , 'sat': ':' })
 ESD_data_list_diff_Mlim.append(data_s)
 
-data_s = ESD_sim(massbin_vector ,path_sim_z0p2 , 5 ,    'k', '$\mathrm{log}_{10}\,M^{\mathrm{limit}}_{\mathrm{fiducial}}$', calib_vect_Mlim  , '' )
+data_s = ESD_sim('calibrated_Mlim' , massbin_vector ,path_sim_z0p2 , 5 ,    'k', '$\mathrm{log}_{10}\,M^{\mathrm{limit}}_{\mathrm{fiducial}}$', calib_vect_Mlim  , '' )
 data_s.redefine_colors({'all': 'k'  , 'cen': 'r'  , 'sat': 'b' })
 ESD_data_list_diff_Mlim.append(data_s)
 
 
-data_g= ESD_gama(massbin_vector , path_gama_data  , 5 , "k", "KiDS $N^{\mathrm{GAMA}}_{\mathrm{FoF}}	\geqslant 5$", extra_tag , 'B', m_bias)
+data_g= ESD_gama('' , massbin_vector , path_gama_data  , 5 , "k", "KiDS $N^{\mathrm{GAMA}}_{\mathrm{FoF}}	\geqslant 5$", extra_tag , 'B', m_bias)
 
 #data_g= ESD_gama(path_gama + "cat_v2_vol_limit_fluxcscale_corr/" , 4, 'k', "KiDS nFOF>4")
 #data_g.redefine_colors({'all': 'k'  , 'cen': 'r'  , 'sat': 'b' })
@@ -1359,7 +1404,7 @@ for ESD_class in ESD_data_list_diff_Mlim:
 savename = path_plot + "diff_Mlim"
 plot_ESD_list(ESD_data_list_diff_Mlim, savename)
 #plot_ESD_sim_stat(ESD_data_list_diff_Mlim, savename)
-compute_chi(ESD_data_list_diff_Mlim)
+compute_chi(ESD_data_list_diff_Mlim, path_plot)
 
 plot_ESD_list(ESD_data_list_diff_Mlim, savename)
 
@@ -1396,7 +1441,7 @@ ESD_data_list_allstars.append(data_g)
 
 
 orange = "#E78532"
-data_s = ESD_sim(path_sim_z0p2 , 0 , orange , "all stars nFOF >1" ,  [ 10.2239  ,    10.5137   ,   10.8012 ,     11.0813    ,  11.3906 ,     8.00000] , '')
+data_s = ESD_sim('' ,path_sim_z0p2 , 0 , orange , "all stars nFOF >1" ,  [ 10.2239  ,    10.5137   ,   10.8012 ,     11.0813    ,  11.3906 ,     8.00000] , '')
 data_s.read_EAGLE_gal_cat()
 data_s.stat_on_bins()
 data_s.ESD_in_bins()
